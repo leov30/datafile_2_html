@@ -197,11 +197,12 @@ for %%g in (catver.ini hiscore.dat cheat.dat romstatus.xml artwork.lst) do (
 )
 
 echo catver.ini
+rem //variable to prioritize custom catver.ini over progettosnaps
+if exist "sources\%_dat:~0,-4%\catver.ini" (set _cat2=1)else (set _cat2=0)
 _bin\xidel -s _temp\catver.ini --input-format=html -e "extract( $raw, '^\w+=[A-Z].+', 0, 'm*')" >_temp\cat2.txt
-REM _bin\xidel -s _temp\catver.ini --input-format=html -e "extract( $raw, '^\w+=[\d.]+', 0, 'm*')" >_temp\ver.txt
-REM _bin\xidel -s _temp\nplayers.ini --input-format=html -e "extract( $raw, '^\w+=.+', 0, 'm*')" >_temp\nplayers.txt
 
 echo romstatus.xml
+rem //this show error if xml file empty
 _bin\xidel -s _temp\romstatus.xml -e "//Rom[Status]/(@name|Status)" >_temp\temp.1
 _bin\xidel -s _temp\temp.1 -e "replace( $raw, '^(\w+)\r\n(\w+)', '$1	$2', 'm')" >_temp\romstatus.txt
 
@@ -276,7 +277,7 @@ for /f "tokens=1-3 delims=	" %%g in (_temp\parents.txt) do (
 		echo ^<p^>
 		echo 		^<a href="http://adb.arcadeitalia.net/?mame=%%j&lang=en" target="_blank"^>Arcade Database [%%j]^</a^>^<br^>
 
-		for /f "tokens=2 delims==" %%k in ('findstr /b "%%j=" _temp\cat.txt') do echo 		^<strong^>Category:^</strong^> %%k^<br^>
+		if %_cat2% equ 0 for /f "tokens=2 delims==" %%k in ('findstr /b "%%j=" _temp\cat.txt') do echo 		^<strong^>Category:^</strong^> %%k^<br^>
 		for /f "tokens=2 delims==" %%k in ('findstr /b "%%j=" _temp\ver.txt') do echo 		^<strong^>Version Added:^</strong^> %%k^<br^>
 		for /f "tokens=2 delims==" %%k in ('findstr /b "%%j=" _temp\nplayers.txt') do echo 		^<strong^>Nplayers:^</strong^> %%k^<br^>
 		for /f "tokens=2 delims==" %%k in ('findstr /b "%%j=" _temp\series.txt') do echo 		^<strong^>Series:^</strong^> %%k^<br^>
@@ -292,7 +293,7 @@ for /f "tokens=1-3 delims=	" %%g in (_temp\parents.txt) do (
 		rem //custom datafile info
 		echo ^<p^>
 		for /f "tokens=2 delims=	" %%j in ('findstr /b /c:"%%g	" _temp\romstatus.txt') do echo 		^<strong^>ROMstatus_XML:^</strong^> %%j^<br^>
-		for /f "tokens=2 delims==" %%j in ('findstr /b "%%g=" _temp\cat2.txt') do echo 		^<strong^>Category:^</strong^> %%j^<br^>
+		if %_cat2% equ 1 for /f "tokens=2 delims==" %%j in ('findstr /b "%%g=" _temp\cat2.txt') do echo 		^<strong^>Category:^</strong^> %%j^<br^>
 
 		rem //xml information
 		for /f "tokens=2 delims=	" %%j in ('findstr /b /c:"%%g	" _temp\manuf.txt') do echo 		^<strong^>Manufacturer:^</strong^> %%j^<br^>
@@ -304,7 +305,7 @@ for /f "tokens=1-3 delims=	" %%g in (_temp\parents.txt) do (
 		rem //list clones
 		set _flag=0
 		for /f "tokens=1" %%j in ('findstr /e /c:"	%%g" _temp\cloneof.txt') do (
-			if !_flag!==0 echo 		^<strong^>Clones:^</strong^>^<br^>
+			if !_flag! equ 0 echo 		^<strong^>Clones:^</strong^>^<br^>
 			for /f "tokens=1,2,3 delims=	" %%k in ('findstr /b /c:"%%j	" "_temp\%_dat:~,-4%.txt"') do echo 		^<font color="%%l"^>^&emsp;%%m [%%k]^</font^>^<br^>
 			set _flag=1
 		)
