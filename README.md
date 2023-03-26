@@ -6,3 +6,4 @@ optional: sources\\progettosnaps\\[catver.ini, nplayers.ini, bestgames.ini, lang
 optional: sources\\[datafile file name]\\[catver.ini, hiscore.dat, cheat.dat, romstatus.xml, artwork.lst] this are files specific for that datafile<br>
 http://www.logiqx.com/Tools/<br>
 https://www.videlibri.de/xidel.html<br>
+![Capture](https://user-images.githubusercontent.com/28023649/227811985-f1a1ad02-9ddd-4631-ab39-ead24fefc39d.JPG)
