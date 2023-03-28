@@ -42,16 +42,24 @@ set /p "_index=Enter number: " || set _index=1
 if "!_dat[%_index%]!"=="" cls&title ERROR&echo NOT A VALID OPTION&pause&exit
 set "_dat=!_dat[%_index%]!"
 
+
+rem //remove clones from selected datafile
+_bin\datutil -r -f generic -o _temp\datutil.dat "datafiles\%_dat%" >nul
+
+
 rem //standarize datafiles with datutil for mamediff
-for %%g in (datafiles\*.xml datafiles\*.dat) do (
-	_bin\datutil -f generic -o "_temp\%%~nxg" "%%g" >nul
+REM for %%g in (datafiles\*.xml datafiles\*.dat) do (
+	REM _bin\datutil -f generic -o "_temp\%%~nxg" "%%g" >nul
 	
-)
+REM )
 
 rem //cross refernece datafiles with mamediff
-for %%g in (_temp\*.dat _temp\*.xml) do (
+for %%g in (datafiles\*.dat datafiles\*.xml) do (
+
 	if not "%%~nxg"=="%_dat%" (
-		_bin\mamediff -s "_temp\%_dat%" "%%g" >nul
+		_bin\datutil -f generic -o "_temp\%%~nxg" "%%g" >nul
+		
+		_bin\mamediff -s _temp\datutil.dat "_temp\%%~nxg" >nul
 		move mamediff.out "_temp\%%~ng.out" >nul
 	)
 )
@@ -168,7 +176,8 @@ for /f %%g in (_temp\parents.lst) do findstr /b /c:"%%g	" "_temp\%_dat:~0,-4%.tx
 cls&title building progettosnaps.net files...
 for %%g in (sources\progettosnaps\*.dat) do (
 	_bin\datutil -f generic -o _temp\temp.1 "%%g" >nul
-	_bin\mamediff -s "_temp\%_dat%" _temp\temp.1 >nul
+	_bin\mamediff -s _temp\datutil.dat _temp\temp.1 >nul
+	
 	move mamediff.out "_temp\MAME_latest.out" >nul
 	del mamediff.log datutil.log
 )
@@ -181,7 +190,7 @@ for %%g in (catver.ini nplayers.ini bestgames.ini languages.ini series.ini) do (
 
 echo catver.ini
 _bin\xidel -s _temp\catver.ini --input-format=html -e "extract( $raw, '^\w+=[A-Z].+', 0, 'm*')" >_temp\cat.txt
-_bin\xidel -s _temp\catver.ini --input-format=html -e "extract( $raw, '^\w+=[\d.]+', 0, 'm*')" >_temp\ver.txt
+REM _bin\xidel -s _temp\catver.ini --input-format=html -e "extract( $raw, '^\w+=[\d.]+', 0, 'm*')" >_temp\ver.txt
 echo nplayers.ini
 _bin\xidel -s _temp\nplayers.ini --input-format=html -e "extract( $raw, '^\w+=.+', 0, 'm*')" >_temp\nplayers.txt
 
@@ -192,7 +201,7 @@ call :convert_ini _temp\series.ini
 
 cls&title building custom xml files... 
 rem //if not found create emtpy files***
-for %%g in (catver.ini hiscore.dat cheat.dat romstatus.xml artwork.lst) do (
+for %%g in (catver.ini hiscore.dat cheat.dat romstatus.xml artwork.lst cheats.cfg) do (
 	if exist "sources\%_dat:~0,-4%\%%g" (copy /y "sources\%_dat:~0,-4%\%%g" _temp)else (type nul>_temp\%%g)
 )
 
@@ -203,14 +212,29 @@ _bin\xidel -s _temp\catver.ini --input-format=html -e "extract( $raw, '^\w+=[A-Z
 
 echo romstatus.xml
 rem //this show error if xml file empty
-_bin\xidel -s _temp\romstatus.xml -e "//Rom[Status]/(@name|Status)" >_temp\temp.1
-_bin\xidel -s _temp\temp.1 -e "replace( $raw, '^(\w+)\r\n(\w+)', '$1	$2', 'm')" >_temp\romstatus.txt
+if exist "sources\%_dat:~0,-4%\romstatus.xml" (
+	_bin\xidel -s _temp\romstatus.xml -e "//Rom[Status]/(@name|Status)" >_temp\temp.1
+	_bin\xidel -s _temp\temp.1 -e "replace( $raw, '^(\w+)\r\n(\w+)', '$1	$2', 'm')" >_temp\romstatus.txt
+)else (
+	type nul>_temp\romstatus.txt
+)
 
 echo hiscore.dat and cheat.dat
 _bin\xidel -s _temp\hiscore.dat -e "extract( $raw, '^(\w\w+):', 1, 'm*')" >_temp\hiscore.lst
 sort /unique _temp\hiscore.lst /o _temp\hiscore.lst
-_bin\xidel -s _temp\cheat.dat -e "extract( $raw, '^(\w\w+):', 1, 'm*')" >_temp\cheat.lst
+
+_bin\xidel -s _temp\cheats.cfg -e "extract( $raw, '^\[(\w+)\]', 1, 'm*')" >_temp\cheat.lst
+
+_bin\xidel -s _temp\cheat.dat -e "extract( $raw, '^:?(\w\w+):', 1, 'm*')" >>_temp\cheat.lst
 sort /unique _temp\cheat.lst /o _temp\cheat.lst
+
+
+
+rem //if not found create emtpy files***
+for %%g in (nodump.lst badump.lst disk.lst sample-file.txt romof-bios.txt manuf.txt year.txt sourcefile.txt cloneof.txt) do (
+	if not exist "_temp\%%g" type nul>_temp\%%g
+)
+
 
 rem //make a single list for header items for fast skipping
 type _temp\nodump.lst >_temp\header.lst
@@ -278,7 +302,7 @@ for /f "tokens=1-3 delims=	" %%g in (_temp\parents.txt) do (
 		echo 		^<a href="http://adb.arcadeitalia.net/?mame=%%j&lang=en" target="_blank"^>Arcade Database [%%j]^</a^>^<br^>
 
 		if %_cat2% equ 0 for /f "tokens=2 delims==" %%k in ('findstr /b "%%j=" _temp\cat.txt') do echo 		^<strong^>Category:^</strong^> %%k^<br^>
-		for /f "tokens=2 delims==" %%k in ('findstr /b "%%j=" _temp\ver.txt') do echo 		^<strong^>Version Added:^</strong^> %%k^<br^>
+		REM if %_cat2% equ 0 for /f "tokens=2 delims==" %%k in ('findstr /b "%%j=" _temp\ver.txt') do echo 		^<strong^>Version Added:^</strong^> %%k^<br^>
 		for /f "tokens=2 delims==" %%k in ('findstr /b "%%j=" _temp\nplayers.txt') do echo 		^<strong^>Nplayers:^</strong^> %%k^<br^>
 		for /f "tokens=2 delims==" %%k in ('findstr /b "%%j=" _temp\series.txt') do echo 		^<strong^>Series:^</strong^> %%k^<br^>
 		for /f "tokens=2 delims==" %%k in ('findstr /b "%%j=" _temp\bestgames.txt') do echo 		^<strong^>Rating:^</strong^> %%k^<br^>
