@@ -132,7 +132,7 @@ _bin\xidel -s _temp\temp.2 -e "replace( $raw, 'good', 'green')" >_temp\status.tx
 
 echo protection, emulation
 if %_drv_old%==true (
-	_bin\xidel -s "_temp\%_dat%" -e "//%_tag%[not(@cloneof)]/driver[@status='proection']/../@name" >_temp\protection.lst
+	_bin\xidel -s "_temp\%_dat%" -e "//%_tag%[not(@cloneof)]/driver[@status='protection']/../@name" >_temp\protection.lst
 	_bin\xidel -s "_temp\%_dat%" -e "//%_tag%[not(@cloneof)]/driver[@status='preliminary']/../@name" >_temp\emulation.lst
 )else (
 	_bin\xidel -s "_temp\%_dat%" -e "//%_tag%[not(@cloneof)]/driver[@protection='preliminary']/../@name" >_temp\protection.lst
