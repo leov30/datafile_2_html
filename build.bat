@@ -42,6 +42,16 @@ set /p "_index=Enter number: " || set _index=1
 if "!_dat[%_index%]!"=="" cls&title ERROR&echo NOT A VALID OPTION&pause&exit
 set "_dat=!_dat[%_index%]!"
 
+cls
+echo --------------------------------------------------
+echo    Enter a prefix for html files ^(no spaces^)
+echo         Skip if not mixing html files 
+echo --------------------------------------------------
+echo:
+set /p "_pre=Type prefix, or press Enter to skip: " || set "_pre="
+cls
+
+
 
 rem //remove clones from selected datafile
 _bin\datutil -r -f generic -o _temp\datutil.dat "datafiles\%_dat%" >nul
@@ -71,7 +81,8 @@ rem //build description and "overall" status tables for every datafile found
 for %%g in (datafiles\*.xml datafiles\*.dat) do (
 	echo %%~xng
 	_bin\xidel -s "%%g" -e "replace( $raw, '^<\WDOCTYPE mame \[.+?\]>', '', 'ms')" >"_temp\%%~xng"
-
+	
+	rem //require datafiles to be in xml format, to clrmamepro support
 	set _tag=game
 	for /f %%h in ('_bin\xidel -s "_temp\%%~nxg" -e "matches( $raw, '<machine name=\""\w+\""')"') do if %%h==true set _tag=machine
 	for /f %%h in ('_bin\xidel -s "_temp\%%~nxg" -e "matches( $raw, '<driver status=\""good\""')"') do set _driver=%%h
@@ -166,6 +177,8 @@ _bin\xidel -s "_temp\%_dat%" -e "//%_tag%[@romof and not(@cloneof)]/(@name|@romo
 _bin\xidel -s _temp\temp.1 -e "replace( $raw, '^(\w+)\r\n(\w+)', '$1	$2', 'm')" >_temp\temp.2
 for /f %%g in (_temp\bios.lst) do findstr /e /c:"	%%g" _temp\temp.2 >>_temp\romof-bios.txt
 
+
+rem //list all parents that have roms minus bios and no devices 
 echo list of all parents games that contain roms minus bios
 _bin\xidel -s "_temp\%_dat%" -e "//!_tag![not(@cloneof) and not(%_isbios%) and not(@isdevice) and rom]/@name" >_temp\parents.lst
 sort _temp\parents.lst /o _temp\parents.lst
@@ -173,6 +186,7 @@ sort _temp\parents.lst /o _temp\parents.lst
 echo rebuild datafile table for easy extraction
 for /f %%g in (_temp\parents.lst) do findstr /b /c:"%%g	" "_temp\%_dat:~0,-4%.txt" >>_temp\parents.txt
 
+rem //progrettosnaps.net support files ******************
 cls&title building progettosnaps.net files...
 for %%g in (sources\progettosnaps\*.dat) do (
 	_bin\datutil -f generic -o _temp\temp.1 "%%g" >nul
@@ -201,16 +215,27 @@ call :convert_ini _temp\series.ini
 
 cls&title building custom xml files... 
 rem //if not found create emtpy files***
-for %%g in (catver.ini hiscore.dat cheat.dat romstatus.xml artwork.lst cheats.cfg) do (
+for %%g in (catver.ini hiscore.dat cheat.dat romstatus.xml artwork.lst cheats.cfg remarks.dat) do (
 	if exist "sources\%_dat:~0,-4%\%%g" (copy /y "sources\%_dat:~0,-4%\%%g" _temp)else (type nul>_temp\%%g)
 )
 
-echo catver.ini
+rem //extract comments from datafile (finalburn ClrMame Pro format), datutl choop long descriptions
+for /f %%g in ('_bin\xidel -s _temp\remarks.dat -e "matches( $raw, '<comment>')"') do if %%g==false ( 
+	_bin\xidel -s _temp\remarks.dat -e "extract( $raw, '^\tname (\w+)\s+(?:cloneof \w+\s+romof \w+\s+)?description (.+)', (1,2), 'm*')" >_temp\temp.1
+	_bin\xidel -s _temp\temp.1 -e "replace( $raw, '^(\w+)\r\n(.+)', '$1	$2', 'm')" >_temp\temp.2
+
+	_bin\xidel -s _temp\temp.2 -e "extract( $raw, '^(\w+)\t.+?\[(.+?)\]', (1,2), 'm*')" >_temp\temp.1
+	
+)else (
+	_bin\xidel -s _temp\remarks.dat -e "//game[comment and not(@cloneof)]/(@name|comment)" >_temp\temp.1
+)
+
+_bin\xidel -s _temp\temp.1 -e "replace( $raw, '^(\w+)\r\n(.+)', '$1	$2', 'm')" >_temp\remarks.txt
+
 rem //variable to prioritize custom catver.ini over progettosnaps
 if exist "sources\%_dat:~0,-4%\catver.ini" (set _cat2=1)else (set _cat2=0)
 _bin\xidel -s _temp\catver.ini --input-format=html -e "extract( $raw, '^\w+=[A-Z].+', 0, 'm*')" >_temp\cat2.txt
 
-echo romstatus.xml
 rem //this show error if xml file empty
 if exist "sources\%_dat:~0,-4%\romstatus.xml" (
 	_bin\xidel -s _temp\romstatus.xml -e "//Rom[Status]/(@name|Status)" >_temp\temp.1
@@ -248,10 +273,15 @@ _bin\xidel -s _temp\romof-bios.txt -e "extract( $raw, '^(\w+)\t', 1, 'm*')" >>_t
 
 call :start_html
 
-REM // for image script
-(echo @echo off
-echo echo Copying images to _IMAGES folder, will exit when done...
-echo md _IMAGES) >>_temp\image_batch.txt
+rem //side titles menu, re-order parents.txt to sort by title
+_bin\xidel -s _temp\parents.txt -e "replace( $raw, '^(\w+)\t([a-z]+)\t(.+)', '$3	$2	$1', 'm')" >_temp\temp.1
+sort _temp\temp.1 /o _temp\temp.1
+_bin\xidel -s _temp\temp.1 -e "replace( $raw, '^(.+?)\t[a-z]+\t(\w+)', ' 		<a href=\""%_pre%main.html#$2\"" target=\""main\"">$1</a><br>', 'm')" >>_temp\%_pre%side.html
+
+rem //use the sorted table to build main.html
+_bin\xidel -s _temp\temp.1 -e "replace( $raw, '^(.+?)\t([a-z]+)\t(\w+)', '$3	$2	$1', 'm')" >_temp\parents.txt
+
+
 
 REM ****** line counter ************
 set _total_lines=0
@@ -259,17 +289,12 @@ set _count_lines=0
 set _percent=0
 for /f "delims=" %%g in (_temp\parents.txt) do set /a _total_lines+=1
 title "%_dat%" !_count_lines! / !_total_lines! ^( !_percent! %% ^)
-REM *******************************
 
-cls
+cls&echo Building main.html....
 for /f "tokens=1-3 delims=	" %%g in (_temp\parents.txt) do (
-	echo %%g
-	
-	rem //side titles menu 
-	(echo 		^<a href="main.html#%%g" target="main"^>%%i^</a^>^<br^>) >>_temp\side.html
-	
+
 	rem //game title
-	(echo 	^<a id="%%g"^>^<h1 style="background-color:%%h;"^>%%i [%%g]^</h1^>^</a^>) >>_temp\main.html
+	echo 	^<a id="%%g"^>^<h1 style="background-color:%%h;"^>%%i [%%g]^</h1^>^</a^>
 	
 	rem //heder labels
 	findstr /x "%%g" _temp\header.lst >nul &&(
@@ -283,7 +308,7 @@ for /f "tokens=1-3 delims=	" %%g in (_temp\parents.txt) do (
 		for /f %%j in ('findstr /b /c:"%%g	" _temp\sample-file.txt') do echo 		^&emsp;[SAMPLES]
 		for /f %%j in ('findstr /b /c:"%%g	" _temp\romof-bios.txt') do echo 		^&emsp;[BIOS]
 		echo ^</strong^>^</center^>^</p^>
-	) >>_temp\main.html
+	)
 	
 	rem //get cross-reference list
 	for %%j in (datafiles\*.dat datafiles\*.xml) do (
@@ -292,7 +317,7 @@ for /f "tokens=1-3 delims=	" %%g in (_temp\parents.txt) do (
 				for /f "tokens=1,2,3 delims=	" %%l in ('findstr /b /c:"%%k	" "_temp\%%~nj.txt"') do echo 		^<strong^>%%~nj: ^</strong^>^<font color="%%m"^>%%n [%%l]^</font^>^<br^>
 			)
 		)
-	) >>_temp\main.html
+	)
 	
 	rem //progettosnaps.net ******
 	set _alt=%%g
@@ -308,37 +333,37 @@ for /f "tokens=1-3 delims=	" %%g in (_temp\parents.txt) do (
 		for /f "tokens=2 delims==" %%k in ('findstr /b "%%j=" _temp\bestgames.txt') do echo 		^<strong^>Rating:^</strong^> %%k^<br^>
 		for /f "tokens=2 delims==" %%k in ('findstr /b "%%j=" _temp\languages.txt') do echo 		^<strong^>Language:^</strong^> %%k^<br^>
 		echo ^</p^>
-	) >>_temp\main.html
+	)
 	
-	rem //copy images from latest progettosnaps pack
-	(echo copy /y !_alt!.png _IMAGES\%%g.png^>nul ^|^| echo %%g^>^>notfound.txt) >>_temp\image_batch.txt
-	
-	(
-		rem //custom datafile info
-		echo ^<p^>
-		for /f "tokens=2 delims=	" %%j in ('findstr /b /c:"%%g	" _temp\romstatus.txt') do echo 		^<strong^>ROMstatus_XML:^</strong^> %%j^<br^>
-		if %_cat2% equ 1 for /f "tokens=2 delims==" %%j in ('findstr /b "%%g=" _temp\cat2.txt') do echo 		^<strong^>Category:^</strong^> %%j^<br^>
 
-		rem //xml information
-		for /f "tokens=2 delims=	" %%j in ('findstr /b /c:"%%g	" _temp\manuf.txt') do echo 		^<strong^>Manufacturer:^</strong^> %%j^<br^>
-		for /f "tokens=2 delims=	" %%j in ('findstr /b /c:"%%g	" _temp\year.txt') do echo 		^<strong^>Year:^</strong^> %%j^<br^>
-		for /f "tokens=2 delims=	" %%j in ('findstr /b /c:"%%g	" _temp\sourcefile.txt') do echo 		^<strong^>Sourcefile:^</strong^> %%j^<br^>
-		for /f "tokens=2 delims=	" %%j in ('findstr /b /c:"%%g	" _temp\sample-file.txt') do echo 		^<strong^>Samples:^</strong^> %%j.zip^<br^>
-		for /f "tokens=2 delims=	" %%j in ('findstr /b /c:"%%g	" _temp\romof-bios.txt') do echo 		^<strong^>BIOS:^</strong^> %%j.zip^<br^>
-		
-		rem //list clones
-		set _flag=0
-		for /f "tokens=1" %%j in ('findstr /e /c:"	%%g" _temp\cloneof.txt') do (
-			if !_flag! equ 0 echo 		^<strong^>Clones:^</strong^>^<br^>
-			for /f "tokens=1,2,3 delims=	" %%k in ('findstr /b /c:"%%j	" "_temp\%_dat:~,-4%.txt"') do echo 		^<font color="%%l"^>^&emsp;%%m [%%k]^</font^>^<br^>
-			set _flag=1
-		)
-		echo ^</p^>
-	) >>_temp\main.html
+	rem //custom datafile info
+	echo ^<p^>
+	for /f "tokens=2 delims=	" %%j in ('findstr /b /c:"%%g	" _temp\romstatus.txt') do echo 		^<strong^>ROMstatus_XML:^</strong^> %%j^<br^>
+	if %_cat2% equ 1 for /f "tokens=2 delims==" %%j in ('findstr /b "%%g=" _temp\cat2.txt') do echo 		^<strong^>Category:^</strong^> %%j^<br^>
+
+	rem //xml information
+	for /f "tokens=2 delims=	" %%j in ('findstr /b /c:"%%g	" _temp\manuf.txt') do echo 		^<strong^>Manufacturer:^</strong^> %%j^<br^>
+	for /f "tokens=2 delims=	" %%j in ('findstr /b /c:"%%g	" _temp\year.txt') do echo 		^<strong^>Year:^</strong^> %%j^<br^>
+	for /f "tokens=2 delims=	" %%j in ('findstr /b /c:"%%g	" _temp\sourcefile.txt') do echo 		^<strong^>Sourcefile:^</strong^> %%j^<br^>
+	for /f "tokens=2 delims=	" %%j in ('findstr /b /c:"%%g	" _temp\sample-file.txt') do echo 		^<strong^>Samples:^</strong^> %%j.zip^<br^>
+	for /f "tokens=2 delims=	" %%j in ('findstr /b /c:"%%g	" _temp\romof-bios.txt') do echo 		^<strong^>BIOS:^</strong^> %%j.zip^<br^>
+	
+	rem //list clones
+	set _flag=0
+	for /f "tokens=1" %%j in ('findstr /e /c:"	%%g" _temp\cloneof.txt') do (
+		if !_flag! equ 0 echo 		^<strong^>Clones:^</strong^>^<br^>
+		for /f "tokens=1,2,3 delims=	" %%k in ('findstr /b /c:"%%j	" "_temp\%_dat:~,-4%.txt"') do echo 		^<font color="%%l"^>^&emsp;%%m [%%k]^</font^>^<br^>
+		set _flag=1
+	)
+	echo ^</p^>
+	
 	
 	rem //add images
-	(echo 	^<img src="snaps\%%g.png" loading="lazy"^>
-	echo 	^<img src="titles\%%g.png" loading="lazy"^>) >>_temp\main.html
+	echo 	^<img src="snaps\%%g.png" loading="lazy"^>
+	echo 	^<img src="titles\%%g.png" loading="lazy"^>
+	
+	rem //finlaburn description remarks
+	for /f "tokens=2 delims=	" %%j in ('findstr /b /c:"%%g	" _temp\remarks.txt') do echo 		^<p^>%%j^</p^>
 	
 	rem //only show status information if game dosent have good status, overwrite for simple driver field
 	if "%_drv_spl%"=="true" (set _status=green)else (set _status=%%h)
@@ -349,16 +374,43 @@ for /f "tokens=1-3 delims=	" %%g in (_temp\parents.txt) do (
 		for /f "tokens=2-4" %%j in ('findstr /b /c:"%%g	" _temp\status.txt') do echo 		^<font color="%%j"^>^&emsp;[COLORS]^</font^>^<font color="%%k"^>^&emsp;[SOUND]^</font^>^<font color="%%l"^>^&emsp;[GRAPHICS]^</font^>
 		for /f %%j in ('findstr /x "%%g" _temp\protection.lst') do echo 		^<font color="red"^>^&emsp;[PROTECTION]^</font^>
 		echo ^</strong^>^</center^>^</p^>
-	) >>_temp\main.html
+	) 
 	
-	
-	REM ****** line counter ************	
+	rem // ****** line counter ************	
 	set /a _count_lines+=1
 	set /a "_percent=(!_count_lines!*100)/!_total_lines!"
 	title "%_dat%" !_count_lines! / !_total_lines! ^( !_percent! %% ^)
-	REM *****************************
-)
+	
+) >>_temp\%_pre%main.html
 
+
+
+REM ****** line counter ************
+REM set _total_lines=0
+set _count_lines=0
+set _percent=0
+REM for /f "delims=" %%g in (_temp\parents.txt) do set /a _total_lines+=1
+title "%_dat%" !_count_lines! / !_total_lines! ^( !_percent! %% ^)
+
+cls&title making copy image script...
+rem //copy images from latest progettosnaps pack, if not foun use direct match
+for /f %%g in (_temp\parents.txt) do (
+	set _alt=%%g
+	for /f "tokens=2" %%j in ('findstr /rb /c:"%%g	." _temp\MAME_latest.out') do set _alt=%%j
+	
+	if "!_alt!"=="%%g" (
+		echo copy /y "%%_path%%\%%g.png" %_pre%NEW_IMAGES\%%g.png^>nul ^|^| echo %%g^>^>%_pre%notfound.txt
+	)else (
+		echo copy /y "%%_path%%\!_alt!.png" %_pre%NEW_IMAGES\%%g.png^>nul ^|^| copy /y "%%_path%%\%%g.png" %_pre%NEW_IMAGES\%%g.png^>nul ^|^| echo %%g^>^>%_pre%notfound.txt
+	)
+	
+	rem // ****** line counter ************	
+	set /a _count_lines+=1
+	set /a "_percent=(!_count_lines!*100)/!_total_lines!"
+	title "%_dat%" !_count_lines! / !_total_lines! ^( !_percent! %% ^)
+	
+) >>_temp\image_batch.txt
+ 
 call :end_html
 
 md output 2>nul
@@ -367,11 +419,11 @@ md "output\%_dat:~0,-4%\visual_database" 2>nul
 md "output\%_dat:~0,-4%\visual_database\titles" 2>nul
 md "output\%_dat:~0,-4%\visual_database\snaps" 2>nul
 
-copy /y _temp\image_batch.txt "output\%_dat:~0,-4%\image_batch.bat"
+copy /y _temp\image_batch.txt "output\%_dat:~0,-4%\%_pre%image_batch.bat"
 
-copy /y _temp\main.html "output\%_dat:~0,-4%\visual_database"
-copy /y _temp\side.html "output\%_dat:~0,-4%\visual_database"
-copy /y _temp\index.html "output\%_dat:~0,-4%"
+copy /y _temp\%_pre%main.html "output\%_dat:~0,-4%\visual_database"
+copy /y _temp\%_pre%side.html "output\%_dat:~0,-4%\visual_database"
+copy /y _temp\%_pre%index.html "output\%_dat:~0,-4%"
 
 
 title FINISHED
@@ -400,17 +452,31 @@ exit /b
 
 REM // main html document - close
 (echo ^</body^>
-echo ^</html^>) >>_temp\main.html
+echo ^</html^>) >>_temp\%_pre%main.html
 
 REM // side titles menu - close
 (echo 	^</p^>
 echo ^</body^>
-echo ^</html^>) >>_temp\side.html
+echo ^</html^>) >>_temp\%_pre%side.html
 
 exit /b
 
 
 :start_html
+
+REM // for image script
+(echo @echo off
+echo title "%_dat%" ^^^| Build: %date%
+echo echo =====================================================
+echo echo  This script will COPY matched .png and rename them   
+echo echo =====================================================
+echo choice /m "Continue?"
+echo if %%errorlevel%% equ 2 exit
+echo cls^&echo. Creating folders and Copying files...
+echo set "_path=%%~1"
+echo if "%%_path%%"=="" set "_path=."
+echo cd /d "%%~dp0"
+echo md %_pre%NEW_IMAGES) >_temp\image_batch.txt
 
 REM //lancher
 (echo ^<^^!DOCTYPE html^>
@@ -419,13 +485,13 @@ echo ^<head^>
 for %%g in ("%_dat:~0,-4%") do echo 	^<title^>%%~g^</title^>
 echo ^</head^>
 echo ^<frameset frameborder="1" cols="20%%,80%%"^>
-echo 	^<frame name="side" src="visual_database\side.html"/^>
-echo 	^<frame name="main" src="visual_database\main.html"/^>
+echo 	^<frame name="side" src="visual_database\%_pre%side.html"/^>
+echo 	^<frame name="main" src="visual_database\%_pre%main.html"/^>
 echo 	^<noframes^>
 echo		 ^<body^>Your browser does not support frames.^</body^>
 echo 	^</noframes^>
 echo ^</frameset^>
-echo ^</html^>) >_temp\index.html
+echo ^</html^>) >_temp\%_pre%index.html
 
 REM //side titles menu - start 
 (echo ^<^^!DOCTYPE html^>
@@ -439,7 +505,7 @@ echo 		body { background-color:powderblue; }
 echo 	^</style^>
 echo ^</head^>
 echo ^<body^>
-echo 	^<p^>) >_temp\side.html
+echo 	^<p^>) >_temp\%_pre%side.html
 
 REM // main html document - start
 (echo ^<^^!DOCTYPE html^>
@@ -450,7 +516,7 @@ echo 	^<style^>
 echo 		body { background-color:powderblue; }
 echo 	^</style^>
 echo ^</head^>
-echo ^<body^>) >_temp\main.html
+echo ^<body^>) >_temp\%_pre%main.html
 
 
 
