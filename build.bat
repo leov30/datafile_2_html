@@ -221,7 +221,7 @@ for %%g in (catver.ini hiscore.dat cheat.dat romstatus.xml artwork.lst cheats.cf
 
 rem //extract comments from datafile (finalburn ClrMame Pro format), datutl choop long descriptions
 for /f %%g in ('_bin\xidel -s _temp\remarks.dat -e "matches( $raw, '<comment>')"') do if %%g==false ( 
-	_bin\xidel -s _temp\remarks.dat -e "extract( $raw, '^\tname (\w+)\s+(?:cloneof \w+\s+romof \w+\s+)?description (.+)', (1,2), 'm*')" >_temp\temp.1
+	_bin\xidel -s _temp\remarks.dat -e "extract( $raw, '^\tname (\w+)\s+(?:romof \w+\s+)?(?:cloneof \w+\s+romof \w+\s+)?description (.+)', (1,2), 'm*')" >_temp\temp.1
 	_bin\xidel -s _temp\temp.1 -e "replace( $raw, '^(\w+)\r\n(.+)', '$1	$2', 'm')" >_temp\temp.2
 
 	_bin\xidel -s _temp\temp.2 -e "extract( $raw, '^(\w+)\t.+?\[(.+?)\]', (1,2), 'm*')" >_temp\temp.1
