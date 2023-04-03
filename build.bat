@@ -497,7 +497,7 @@ REM //side titles menu - start
 (echo ^<^^!DOCTYPE html^>
 echo ^<html^>
 echo ^<head^>
-REM echo 	^<title^>"%_option%"^</title^>
+for %%g in ("%_dat:~0,-4%") do echo 	^<title^>%%~g^</title^>
 echo 	^<style^>
 echo 		p { white-space:nowrap; }
 echo 		a { color:#5F2F03; text-decoration:none; }
@@ -511,7 +511,7 @@ REM // main html document - start
 (echo ^<^^!DOCTYPE html^>
 echo ^<html^>
 echo ^<head^>
-REM echo    ^<title^>"%_option%"^</title^>
+for %%g in ("%_dat:~0,-4%") do echo 	^<title^>%%~g^</title^>
 echo 	^<style^>
 echo 		body { background-color:powderblue; }
 echo 	^</style^>

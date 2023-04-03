@@ -8,9 +8,11 @@ rem //no support for mame2003 plus datafile ***********************
 if not exist _temp (md _temp)else (del /q /s _temp >nul)
 
 rem //fill in missing tags, convert, and verify datafiles
-for %%g in (datafiles\*.xml datafile\*.dat) do (
+for %%g in (datafiles\*.xml datafiles\*.dat) do (
 	call :add_missing "%%g"
 )
+
+if not exist _temp\datafiles.lst title ERROR&echo No datafiles were found, or error converting...&pause&exit
 
 
 REM goto :skip
@@ -117,7 +119,14 @@ call :count_xml
 rem //make status info, no support for mame2003plus, only for games with full driver status
 for /f "delims=" %%g in (_temp\datafiles.lst) do call :make_status %%g
 
+cls
+rem //add the header back 
+for /f "delims=" %%g in (_temp\datafiles.lst) do (
+	_bin\datutil -k -f listxml -o _temp\temp.1 "%%~g" >nul
+	del "%%~g" & ren _temp\temp.1 "%%~ng.xml"
 
+)
+del datutil.log
 
 pause&exit
 
@@ -198,16 +207,19 @@ exit /b
 
 
 :add_missing
-
-	rem //convert to xml and keep the driver field, if fail exit
-	_bin\datutil -k -f listxml -o _temp\temp.1 "%~1" >nul || exit /b
+	echo %1
+	rem //convert to xml and keep the driver field, if fail use generic xml format and loose driver field
+	_bin\datutil -k -f listxml -o _temp\temp.1 "%~1" >nul || (
+		_bin\datutil -f generic -o _temp\temp.1 "%~1" >nul || exit /b
+	
+	)
 	
 	rem //remove this because it breaks xidel...
 	_bin\xidel -s _temp\temp.1 -e "replace( $raw, '^<\WDOCTYPE mame \[.+?\]>', '', 'ms')" >_temp\temp.xml
 	
 	rem //check if there are games with missing "manufacturer"
 	for /f %%h in ('_bin\xidel -s _temp\temp.xml -e "//game[not(manufacturer)]/@name"') do (
-		echo %%~ng ^< manufacturer
+		echo %%~ng ^< added missing "manufacturer"
 		_bin\xidel -s _temp\temp.xml -e "replace( $raw, '(<game(?: isbios=\""yes\"")? name=\""%%h\"".*?>)(\r\n)', '$1$2		<manufacturer>????</manufacturer>$2')" >_temp\temp.1
 		del _temp\temp.xml & ren _temp\temp.1 temp.xml
 			
@@ -215,6 +227,7 @@ exit /b
 	
 	rem //check if there are games with missing "year"
 	for /f %%h in ('_bin\xidel -s _temp\temp.xml -e "//game[not(year)]/@name"') do (
+		echo %%~ng ^< added missing "year"
 		_bin\xidel -s _temp\temp.xml -e "replace( $raw, '(<game(?: isbios=\""yes\"")? name=\""%%h\"".*?>)(\r\n)', '$1$2		<year>????</year>$2')" >_temp\temp.1
 		del _temp\temp.xml & ren _temp\temp.1 temp.xml
 			
@@ -229,6 +242,7 @@ exit /b
 	
 		rem //check if there are games with missing "driver"
 		for /f %%h in ('_bin\xidel -s _temp\temp.xml -e "//game[not(driver)]/@name"') do (
+			%%~ng ^< added missing "driver status"
 			_bin\xidel -s _temp\temp.xml -e "replace( $raw, '(<game(?: isbios=\""yes\"")? name=\""%%h\"".*?>)(\r\n)', '$1$2		<driver !_driver!/>$2')" >_temp\temp.1
 			del _temp\temp.xml & ren _temp\temp.1 temp.xml
 				
@@ -236,11 +250,11 @@ exit /b
 		
 	)
 	
-	rem //add to goo datafile list
+	rem //add to good datafile list
 	(echo "_temp\%~n1.xml") >>_temp\datafiles.lst
 	
-	rem //use datutil again to put everything togheter
-	_bin\datutil -k -f listxml -o _temp\temp.1 _temp\temp.xml >nul
+	rem //use datutil again to put everything togheter, and sort
+	_bin\datutil -s -l -k -f listxml -o _temp\temp.1 _temp\temp.xml >nul
 	_bin\xidel -s _temp\temp.1 -e "replace( $raw, '^<\WDOCTYPE mame \[.+?\]>', '', 'ms')" >"_temp\%~n1.xml"
 	
 	del _temp\temp.xml
