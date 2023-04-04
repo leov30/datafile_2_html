@@ -12,6 +12,7 @@ for %%g in (datafiles\*.xml datafiles\*.dat) do (
 	call :add_missing "%%g"
 )
 
+
 if not exist _temp\datafiles.lst title ERROR&echo No datafiles were found, or error converting...&pause&exit
 
 
@@ -43,7 +44,7 @@ for /f "delims=" %%g in (_temp\datafiles.lst) do (
 	)
 	
 	REM echo 	table, th, td {border: 1px solid black; border-collapse: collapse;}
-	(echo ^<!DOCTYPE html^>
+	(echo ^<^!DOCTYPE html^>
 	echo ^<html^>
 	echo ^<head^>
 	echo ^<style^>
@@ -146,7 +147,7 @@ pause&exit
 	
 	
 	
-	(echo ^<!DOCTYPE html^>
+	(echo ^<^!DOCTYPE html^>
 	echo ^<html^>
 	echo ^<head^>
 	echo ^<style^>
@@ -217,6 +218,15 @@ exit /b
 	rem //remove this because it breaks xidel...
 	_bin\xidel -s _temp\temp.1 -e "replace( $raw, '^<\WDOCTYPE mame \[.+?\]>', '', 'ms')" >_temp\temp.xml
 	
+	
+	rem //check if there are games with missing "description"
+	for /f %%h in ('_bin\xidel -s _temp\temp.xml -e "//game[not(description)]/@name"') do (
+		echo %%~ng ^< added missing "description"
+		_bin\xidel -s _temp\temp.xml -e "replace( $raw, '(<game(?: isbios=\""yes\"")? name=\""%%h\"".*?>)(\r\n)', '$1$2		<description>????</description>$2')" >_temp\temp.1
+		del _temp\temp.xml & ren _temp\temp.1 temp.xml
+			
+	)
+	
 	rem //check if there are games with missing "manufacturer"
 	for /f %%h in ('_bin\xidel -s _temp\temp.xml -e "//game[not(manufacturer)]/@name"') do (
 		echo %%~ng ^< added missing "manufacturer"
@@ -254,6 +264,9 @@ exit /b
 	(echo "_temp\%~n1.xml") >>_temp\datafiles.lst
 	
 	rem //use datutil again to put everything togheter, and sort
+	REM _bin\datutil -s -l -k -f listxml -o "_temp\%~n1.xml" _temp\temp.xml >nul
+	
+	
 	_bin\datutil -s -l -k -f listxml -o _temp\temp.1 _temp\temp.xml >nul
 	_bin\xidel -s _temp\temp.1 -e "replace( $raw, '^<\WDOCTYPE mame \[.+?\]>', '', 'ms')" >"_temp\%~n1.xml"
 	
