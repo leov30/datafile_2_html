@@ -13,6 +13,7 @@ title Visual Database HTML Builder
 
 md _bin sources datafiles sources\progettosnaps 2>nul
 
+rem //**** titles will have missing exclamation mark *******************
 if not exist _bin\datutil.exe set _error=1
 if not exist _bin\mamediff.exe set _error=1
 if not exist _bin\xidel.exe set _error=1
