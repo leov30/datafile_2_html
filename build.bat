@@ -283,6 +283,21 @@ rem //use the sorted table to build main.html
 _bin\xidel -s _temp\temp.1 -e "replace( $raw, '^(.+?)\t([a-z]+)\t(\w+)', '$3	$2	$1', 'm')" >_temp\parents.txt
 
 
+rem //escape exclamation mark for titles
+_bin\xidel -s "_temp\%_dat:~,-4%.txt" -e "replace( $raw, '^!', '^^^!', 'q')" >_temp\temp.1
+del "_temp\%_dat:~,-4%.txt" & ren _temp\temp.1 "%_dat:~,-4%.txt"
+
+_bin\xidel -s _temp\parents.txt -e "replace( $raw, '^!', '^^^!', 'q')" >_temp\temp.1
+del _temp\parents.txt & ren _temp\temp.1 parents.txt
+
+
+for %%j in (datafiles\*.dat datafiles\*.xml) do (
+	if not "%%~nxj"=="%_dat%" (
+		_bin\xidel -s "_temp\%%~nj.txt" -e "replace( $raw, '^!', '^^^!', 'q')" >_temp\temp.1
+		del "_temp\%%~nj.txt" & ren _temp\temp.1 "%%~nj.txt"
+	)
+)
+
 
 REM ****** line counter ************
 set _total_lines=0
