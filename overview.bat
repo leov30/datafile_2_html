@@ -252,7 +252,7 @@ exit /b
 	
 		rem //check if there are games with missing "driver"
 		for /f %%h in ('_bin\xidel -s _temp\temp.xml -e "//game[not(driver)]/@name"') do (
-			%%~ng ^< added missing "driver status"
+			echo %%~ng ^< added missing "driver status"
 			_bin\xidel -s _temp\temp.xml -e "replace( $raw, '(<game(?: isbios=\""yes\"")? name=\""%%h\"".*?>)(\r\n)', '$1$2		<driver !_driver!/>$2')" >_temp\temp.1
 			del _temp\temp.xml & ren _temp\temp.1 temp.xml
 				
