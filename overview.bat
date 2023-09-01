@@ -44,7 +44,7 @@ for /f "delims=" %%g in (_temp\datafiles.lst) do (
 	)
 	
 	REM echo 	table, th, td {border: 1px solid black; border-collapse: collapse;}
-	(echo ^<^!DOCTYPE html^>
+	(echo ^<^^!DOCTYPE html^>
 	echo ^<html^>
 	echo ^<head^>
 	echo ^<style^>
@@ -164,7 +164,7 @@ pause&exit
 	
 	
 	
-	(echo ^<^!DOCTYPE html^>
+	(echo ^<^^!DOCTYPE html^>
 	echo ^<html^>
 	echo ^<head^>
 	echo ^<style^>
