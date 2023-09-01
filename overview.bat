@@ -120,6 +120,14 @@ call :count_xml
 rem //make status info, no support for mame2003plus, only for games with full driver status
 for /f "delims=" %%g in (_temp\datafiles.lst) do call :make_status %%g
 
+
+rem //clean empty sapces, remove unescesary id tag from html files
+for %%g in (_temp\*.html) do (
+	_bin\xidel -s "%%g" -e "replace( $raw, '^\r\n[\r\n]+', codepoints-to-string((13,10)), 'm')" >_temp\temp.1
+	_bin\xidel -s _temp\temp.1 -e "replace( $raw, 'id=\""good\""', '')" >"%%g"
+)
+
+
 cls
 rem //add the header back 
 for /f "delims=" %%g in (_temp\datafiles.lst) do (

@@ -6,9 +6,9 @@ if not exist _bin\datutil.exe title ERROR&echo This script needs _bin\datutil.ex
 
 if not exist _temp (md _temp)else (del /q /s _temp >nul)
 rem //use folders by datafile
-for %%g in (datafiles\*.xml) do (
+for %%g in (datafiles\*.xml datafiles\*.dat) do (
 	echo %%~ng
-	for %%h in (datafiles\*.xml) do (
+	for %%h in (datafiles\*.xml datafiles\*.dat) do (
 		if not "%%~ng"=="%%~nh" (
 			echo 	%%~nh
 			call :mamediff "%%g" "%%h"
