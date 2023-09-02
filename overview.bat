@@ -54,8 +54,8 @@ for /f "delims=" %%g in (_temp\datafiles.lst) do (
 	REM echo 	table tr:nth-child^(even^){background-color: #f2f2f2;}
 	echo 	table tr:hover {background-color: #ddd;}
 	echo 	table th {padding-top: 12px;padding-bottom: 12px;text-align: center;background-color: #04AA6D;color: white;}
-	echo 	table td#preliminary {background-color: F66767;}
-	echo 	table td#imperfect {background-color: F7CD5E;}
+	echo 	table td#preliminary {background-color: #F66767;}
+	echo 	table td#imperfect {background-color: #F7CD5E;}
 	echo ^</style^>
 	echo ^<title^>%%~ng^</title^>
 	echo ^</head^>
@@ -173,8 +173,8 @@ pause&exit
 	echo 	table td, th {border: 1px solid black;padding: 8px;}
 	echo 	table tr:hover {background-color: #ddd;}
 	echo 	table th {padding-top: 12px;padding-bottom: 12px;text-align: center;background-color: #04AA6D;color: white;}
-	echo 	table td#preliminary {background-color: F66767;}
-	echo 	table td#imperfect {background-color: F7CD5E;}
+	echo 	table td#preliminary {background-color: #F66767;}
+	echo 	table td#imperfect {background-color: #F7CD5E;}
 	echo ^</style^>
 	echo ^<title^>%~n1^</title^>
 	echo ^</head^>
@@ -219,18 +219,41 @@ pause&exit
 exit /b
 
 
-
-
-
-
-
 :add_missing
 	echo %1
+	
+	rem //detect mame2003plus driver
+	copy "%~1" _temp\temp.xml
+	
+	
+	for /f %%g in ('_bin\xidel -s _temp\temp.xml -e "matches( $raw, '<driver status=\""protection\""')"') do if %%g==true (
+	
+		_bin\xidel -s _temp\temp.xml -e "replace( $raw, ' palettesize=\""\d+\""', '', 'm')" >_temp\temp.1
+		_bin\xidel -s _temp\temp.1 -e "replace( $raw, '<driver status=\""(\w+)\""', '<driver status=\""good\"" emulation=\""$1\""', 'm')" >_temp\temp.2
+
+
+		_bin\xidel -s _temp\temp.2 -e "replace( $raw, '<driver status=\""good\""( emulation=\""preliminary\"" color=\""\w+\"" sound=\""\w+\"" graphic=\""\w+\"")/>', '<driver status=\""preliminary\"" $1/>', 'm')" >_temp\temp.1
+		_bin\xidel -s _temp\temp.1 -e "replace( $raw, '<driver status=\""good\""( emulation=\""\w+\"" color=\""preliminary\"" sound=\""\w+\"" graphic=\""\w+\"")/>', '<driver status=\""preliminary\"" $1/>', 'm')" >_temp\temp.2
+		_bin\xidel -s _temp\temp.2 -e "replace( $raw, '<driver status=\""good\""( emulation=\""\w+\"" color=\""\w+\"" sound=\""preliminary\"" graphic=\""\w+\"")/>', '<driver status=\""preliminary\"" $1/>', 'm')" >_temp\temp.1
+		_bin\xidel -s _temp\temp.1 -e "replace( $raw, '<driver status=\""good\""( emulation=\""\w+\"" color=\""\w+\"" sound=\""\w+\"" graphic=\""preliminary\"")/>', '<driver status=\""preliminary\"" $1/>', 'm')" >_temp\temp.xml
+
+
+		_bin\xidel -s _temp\temp.xml -e "replace( $raw, '<driver status=\""good\""( emulation=\""imperfect\"" color=\""\w+\"" sound=\""\w+\"" graphic=\""\w+\"")/>', '<driver status=\""imperfect\"" $1/>', 'm')" >_temp\temp.1
+		_bin\xidel -s _temp\temp.1 -e "replace( $raw, '<driver status=\""good\""( emulation=\""\w+\"" color=\""imperfect\"" sound=\""\w+\"" graphic=\""\w+\"")/>', '<driver status=\""imperfect\"" $1/>', 'm')" >_temp\temp.2
+		_bin\xidel -s _temp\temp.2 -e "replace( $raw, '<driver status=\""good\""( emulation=\""\w+\"" color=\""\w+\"" sound=\""imperfect\"" graphic=\""\w+\"")/>', '<driver status=\""imperfect\"" $1/>', 'm')" >_temp\temp.1
+		_bin\xidel -s _temp\temp.1 -e "replace( $raw, '<driver status=\""good\""( emulation=\""\w+\"" color=\""\w+\"" sound=\""\w+\"" graphic=\""imperfect\"")/>', '<driver status=\""imperfect\"" $1/>', 'm')" >_temp\temp.2
+
+		rem //not_working status its lost 
+		_bin\xidel -s _temp\temp.2 -e "replace( $raw, '<driver status=\""\w+\"" emulation=\""protection\"" (color=\""\w+\"" sound=\""\w+\"" graphic=\""\w+\"")/>', '<driver status=\""preliminary\"" emulation=\""good\"" $1 protection=\""preliminary\""/>', 'm')" >_temp\temp.xml
+
+	)
+	
 	rem //convert to xml and keep the driver field, if fail use generic xml format and loose driver field
-	_bin\datutil -k -f listxml -o _temp\temp.1 "%~1" >nul || (
-		_bin\datutil -f generic -o _temp\temp.1 "%~1" >nul || exit /b
+	_bin\datutil -k -f listxml -o _temp\temp.1 _temp\temp.xml >nul || (
+		_bin\datutil -f generic -o _temp\temp.1 _temp\temp.xml >nul || exit /b
 	
 	)
+	
 	
 	rem //remove this because it breaks xidel...
 	_bin\xidel -s _temp\temp.1 -e "replace( $raw, '^<\WDOCTYPE mame \[.+?\]>', '', 'ms')" >_temp\temp.xml
@@ -270,6 +293,8 @@ exit /b
 		rem //check if there are games with missing "driver"
 		for /f %%h in ('_bin\xidel -s _temp\temp.xml -e "//game[not(driver)]/@name"') do (
 			echo %%~ng ^< added missing "driver status"
+			echo %%h >>_temp\driver.txt
+			
 			_bin\xidel -s _temp\temp.xml -e "replace( $raw, '(<game(?: isbios=\""yes\"")? name=\""%%h\"".*?>)(\r\n)', '$1$2		<driver !_driver!/>$2')" >_temp\temp.1
 			del _temp\temp.xml & ren _temp\temp.1 temp.xml
 				
